@@ -1,0 +1,99 @@
+name: 检查上游更新
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'  # 每周一 UTC 01:00（北京时间周一上午9点）
+  workflow_dispatch:      # 允许手动触发
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 获取上游最新 commit
+        id: upstream
+        run: |
+          LATEST=$(curl -s "https://api.github.com/repos/59799517/simple_sq_music_plus/commits?sha=3.0&per_page=1" \
+            | jq -r '.[0].sha')
+          echo "sha=$LATEST" >> $GITHUB_OUTPUT
+          echo "上游最新 commit: $LATEST"
+
+      - name: 读取本地 baseline
+        id: baseline
+        run: |
+          BASELINE=$(cat .github/upstream_baseline.txt | tr -d '[:space:]')
+          echo "sha=$BASELINE" >> $GITHUB_OUTPUT
+          echo "本地 baseline: $BASELINE"
+
+      - name: 是否有更新
+        id: diff
+        run: |
+          if [ "${{ steps.upstream.outputs.sha }}" != "${{ steps.baseline.outputs.sha }}" ]; then
+            echo "has_update=true" >> $GITHUB_OUTPUT
+            echo "检测到上游有新提交"
+          else
+            echo "has_update=false" >> $GITHUB_OUTPUT
+            echo "上游无变化"
+          fi
+
+      - name: 获取新提交列表
+        if: steps.diff.outputs.has_update == 'true'
+        id: commits
+        run: |
+          COMMITS=$(curl -s "https://api.github.com/repos/59799517/simple_sq_music_plus/commits?sha=3.0&per_page=15" \
+            | jq -r '.[] | "- `" + .sha[:8] + "` " + (.commit.committer.date[:10]) + " " + (.commit.message | split("\n")[0])')
+          echo "list<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 创建通知 Issue
+        if: steps.diff.outputs.has_update == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commits = `${{ steps.commits.outputs.list }}`;
+            const upstream = "${{ steps.upstream.outputs.sha }}".substring(0, 8);
+            const baseline = "${{ steps.baseline.outputs.sha }}".substring(0, 8);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔔 上游项目有新更新（${new Date().toISOString().substring(0,10)}）`,
+              labels: ['upstream-update'],
+              body: [
+                '## 上游项目检测到新提交',
+                '',
+                `上游仓库：https://github.com/59799517/simple_sq_music_plus （分支 \`3.0\`）`,
+                '',
+                `| 项目 | SHA |`,
+                `|------|-----|`,
+                `| 上游最新 | \`${upstream}\` |`,
+                `| 本 Mod 基准 | \`${baseline}\` |`,
+                '',
+                '### 上游最近提交',
+                commits,
+                '',
+                '---',
+                '',
+                '### 下一步',
+                '1. 对照 [升级迁移指南](../blob/3.0/升级迁移指南.md) 检查需要合并的改动',
+                '2. 在本地执行：`git fetch upstream && git diff upstream/3.0 -- <文件路径>` 查看具体变更',
+                '3. 完成合并并测试后，**关闭此 Issue**',
+              ].join('\n')
+            });
+
+      - name: 更新 baseline
+        if: steps.diff.outputs.has_update == 'true'
+        run: |
+          echo "${{ steps.upstream.outputs.sha }}" > .github/upstream_baseline.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/upstream_baseline.txt
+          git commit -m "chore: 更新上游 baseline 至 ${{ steps.upstream.outputs.sha }}"
+          git push origin 3.0

@@ -1,0 +1,5 @@
+-- 3.0.33 addon 个性化设置
+INSERT INTO `sq_config` (`config_name`, `config_value`, `config_key`, `config_type`, `config_show`, `config_remark`, `config_null_check`, `config_disabled`) VALUES ('addon-路径斜杠替换开关', 'false', 'addon.path.slash.replace.enable', 'boolean', 1, '开启后会将路径中的/\\等非法字符替换为自定义字符，默认关闭保持原版行为', 1, 0);
+INSERT INTO `sq_config` (`config_name`, `config_value`, `config_key`, `config_type`, `config_show`, `config_remark`, `config_null_check`, `config_disabled`) VALUES ('addon-路径斜杠替换字符', '-', 'addon.path.slash.replace.char', 'input', 1, '路径字符替换目标，例如-或+；仅在addon路径替换开关开启后生效', 1, 0);
+INSERT INTO `sq_config` (`config_name`, `config_value`, `config_key`, `config_type`, `config_show`, `config_remark`, `config_null_check`, `config_disabled`) VALUES ('addon-专辑艺术家目录规则', 'false', 'addon.album.artist.folder.enable', 'boolean', 1, '开启后使用专辑艺术家作为目录归档依据，关闭则保持原版以歌曲首歌手为准', 1, 0);
+INSERT INTO `sq_config` (`config_name`, `config_value`, `config_key`, `config_type`, `config_show`, `config_remark`, `config_null_check`, `config_disabled`) VALUES ('addon-音轨号写入metadata', 'false', 'addon.track.number.enable', 'boolean', 1, '开启后尝试从本地 metadata 解析音轨序号并写入标签，不修改文件名', 1, 0);

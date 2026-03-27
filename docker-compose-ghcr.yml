@@ -8,6 +8,13 @@ version: '3.8'
 #   1. volumes 中的音乐目录路径（./music 改为实际路径，如 /mnt/hdd/sqmusic）
 #   2. 如需修改端口，调整 sqmusic_web 的 ports 映射
 #   3. 建议修改 MYSQL_ROOT_PASSWORD 和 DB_PASSWORD 为强密码
+#
+# 首次安装（包含版本绿点功能）:
+#   mkdir -p web_patch
+#   curl -o docker-compose-ghcr.yml https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose-ghcr.yml
+#   curl -o web_patch/index.html https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/web_patch/index.html
+#   curl -o web_patch/custom-update-dot.js https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/web_patch/custom-update-dot.js
+#   docker compose -f docker-compose-ghcr.yml up -d
 
 services:
   sqmusic_main:
@@ -36,6 +43,9 @@ services:
     container_name: sqmusic_web
     ports:
       - "8096:80"
+    volumes:
+      - ./web_patch/index.html:/usr/share/nginx/html/index.html:ro
+      - ./web_patch/custom-update-dot.js:/usr/share/nginx/html/custom-update-dot.js:ro
     networks:
       - sq-app-network
     depends_on:

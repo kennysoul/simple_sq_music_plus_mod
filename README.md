@@ -21,15 +21,15 @@
 
 ```bash
 # 下载部署文件
-curl -O https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose-ghcr.yml
+curl -O https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
 
 # 启动（首次运行如报错请等待 MySQL 初始化完成后重试）
-docker compose -f docker-compose-ghcr.yml up -d
+docker compose up -d
 ```
 
 - 默认 Web 端口：`8096`
 - 默认账号/密码：`admin` / `admin`
-- 音乐文件目录：当前目录下的 `./music`（可在 `docker-compose-ghcr.yml` 中修改）
+- 音乐文件目录：当前目录下的 `./music`（可在 `docker-compose.yml` 中修改）
 
 > 如需使用原版官方镜像，请参考下方原版说明。
 

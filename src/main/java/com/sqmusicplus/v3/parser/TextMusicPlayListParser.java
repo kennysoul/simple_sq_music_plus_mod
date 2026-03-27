@@ -16,6 +16,7 @@ import com.sqmusicplus.v3.plug.netease.hander.NeteaseHander;
 import com.sqmusicplus.v3.plug.qq.hander.QQHander;
 import com.sqmusicplus.v3.plug.qqvip.QQvipHander;
 import com.sqmusicplus.v3.utils.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
  * @Date 2022/8/10 16:15
  * @Created by SQ
  */
+@Slf4j
 @Component("textParser")
 public class TextMusicPlayListParser {
 
@@ -48,66 +50,81 @@ public class TextMusicPlayListParser {
 
     public List<ParserEntity> parser(String msg) throws IOException {
         String[] split = msg.split("\n");
-        return Arrays.stream(split).map(m -> {
-            String[] sa = m.split("-");
-            try {
-                return new ParserEntity().setSongName(sa[0].trim()).setArtistsName(sa[1].trim());
-            } catch (ArrayIndexOutOfBoundsException e) {
-                return  new ParserEntity().setSongName(m.trim()).setArtistsName("");
-            }
-        }).collect(Collectors.toList());
+        return Arrays.stream(split)
+                .filter(s -> StringUtils.isNotBlank(s.trim()))
+                .map(m -> {
+                    String[] sa = m.split("-");
+                    try {
+                        return new ParserEntity().setSongName(sa[0].trim()).setArtistsName(sa[1].trim());
+                    } catch (ArrayIndexOutOfBoundsException e) {
+                        return new ParserEntity().setSongName(m.trim()).setArtistsName("");
+                    }
+                }).collect(Collectors.toList());
 
     }
 
 
     public List<ParserEntity> parserParserEntity(List<ParserEntity> parserEntities) throws IOException {
+        SqConfig sqConfig = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_KW_OPEN);
+        SqConfig netOpen = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_NETEASE_OPEN);
+        SqConfig qqvipOpen = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_QQVIP_OPEN);
+        SqConfig kgOpen = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_KG_OPEN);
+
         for (ParserEntity parserEntity : parserEntities) {
-            //        酷我-网易-qqvip-酷狗-qq
-            SqConfig sqConfig = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_KW_OPEN);
-            SqConfig netOpen = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_NETEASE_OPEN);
-            SqConfig qqvipOpen = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_QQVIP_OPEN);
-            SqConfig kgOpen = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_KG_OPEN);
+            try {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
 
-            //组合搜索条件
-            if (StringUtils.isBlank(parserEntity.getSongName())) {
-                parserEntity.setIsDetection(false);
-                continue;
-            }
-            String searchKey = parserEntity.getSongName();
+                if (StringUtils.isBlank(parserEntity.getSongName())) {
+                    parserEntity.setIsDetection(false);
+                    continue;
+                }
+                String searchKey = parserEntity.getSongName().trim();
 
-            if (StringUtils.isNotBlank(parserEntity.getArtistsName())){
-                searchKey += " " + parserEntity.getArtistsName();
-            }
-            SearchKeyData searchKeyData = new SearchKeyData();
-            searchKeyData.setSearchkey(searchKey).setPageIndex(1).setPageSize(20);
+                if (StringUtils.isNotBlank(parserEntity.getArtistsName())) {
+                    if (parserEntity.getArtistsName().contains("/") || parserEntity.getArtistsName().contains("&") || parserEntity.getArtistsName().contains(";")) {
+                        String[] split = parserEntity.getArtistsName().split("[/&;]");
+                        for (String artist : split) {
+                            if (StringUtils.isNotBlank(artist.trim())) {
+                                parserEntity.setArtistsName(artist.trim());
+                                break;
+                            }
+                        }
+                    }
+                    searchKey += " " + parserEntity.getArtistsName().trim();
+                }
+                SearchKeyData searchKeyData = new SearchKeyData();
+                searchKeyData.setSearchkey(searchKey).setPageIndex(1).setPageSize(20);
 
-            if (sqConfig.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
-
-                PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = nKwHander.querySongByName(searchKeyData);
-                //找出匹配的
-                extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
-            }
-
-
-            if ( parserEntity.getIsDetection() == null || !parserEntity.getIsDetection()) {
-                if (netOpen.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
-                    PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = neteaseHander.querySongByName(searchKeyData);
+                if (sqConfig.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
+                    PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = nKwHander.querySongByName(searchKeyData);
                     extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
                 }
-            }
-            if (parserEntity.getIsDetection() == null || !parserEntity.getIsDetection()) {
-                if (qqvipOpen.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
-                    PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = qqvipHander.querySongByName(searchKeyData);
-                    extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
-                }
-            }
-            if (parserEntity.getIsDetection() == null || !parserEntity.getIsDetection()) {
-                if (kgOpen.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
-                    PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = kGHander.querySongByName(searchKeyData);
-                    extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
-                }
-            }
 
+                if (parserEntity.getIsDetection() == null || !parserEntity.getIsDetection()) {
+                    if (netOpen.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
+                        PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = neteaseHander.querySongByName(searchKeyData);
+                        extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
+                    }
+                }
+                if (parserEntity.getIsDetection() == null || !parserEntity.getIsDetection()) {
+                    if (qqvipOpen.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
+                        PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = qqvipHander.querySongByName(searchKeyData);
+                        extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
+                    }
+                }
+                if (parserEntity.getIsDetection() == null || !parserEntity.getIsDetection()) {
+                    if (kgOpen.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())) {
+                        PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = kGHander.querySongByName(searchKeyData);
+                        extracted(parserEntity, plugSearchMusicResultPlugSearchResult);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("解析失败:{}", parserEntity);
+            }
         }
         return parserEntities;
     }

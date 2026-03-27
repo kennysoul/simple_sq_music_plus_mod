@@ -353,7 +353,7 @@ public abstract class SearchHanderAbstract implements SearchHander, Serializable
                 .setDownloadTime(new Date())
                 .setDownloadFile(music.getName()+" - "+String.join("&", music.getArtistName()))
                 .setDownloadMusicId(music.getId())
-                .setDownloadPlugName(brType.getPlugName())
+                .setDownloadPlugName(music.getPlugName())
                 .setDownloadBrType(brType.getId())
                 .setDownloadMusicname(music.getName())
                 .setDownloadArtistname(String.join("&", music.getArtistName()))

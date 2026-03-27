@@ -35,6 +35,8 @@ public class DownloadInfoServiceImpl extends ServiceImpl<DownloadInfoMapper, Dow
 
     @Override
     public synchronized Boolean add(DownloadInfo downloadInfo) {
+        // 截断过长字段，避免数据库 varchar(255) 插入异常
+        truncateStringField(downloadInfo);
         downloadInfo.setDownloadStatus(DownloadStatus.waiting.getValue());
         boolean save = downloadInfoService.save(downloadInfo);
         return  save;
@@ -49,6 +51,8 @@ public class DownloadInfoServiceImpl extends ServiceImpl<DownloadInfoMapper, Dow
         for (DownloadInfo info : downloadInfo) {
             // 检查歌曲ID是否已存在
             if (!uniqueMusicIds.contains(info.getDownloadMusicId())) {
+                // 截断过长字段，避免数据库 varchar(255) 插入异常
+                truncateStringField(info);
                 info.setDownloadStatus(DownloadStatus.waiting.getValue());
                 uniqueMusicIds.add(info.getDownloadMusicId());
                 uniqueDownloadInfo.add(info);
@@ -61,6 +65,27 @@ public class DownloadInfoServiceImpl extends ServiceImpl<DownloadInfoMapper, Dow
         
         boolean save = downloadInfoService.saveBatch(uniqueDownloadInfo);
         return save;
+    }
+
+    /**
+     * 截断 DownloadInfo 中可能超长的字符串字段，防止数据库插入失败。
+     */
+    private void truncateStringField(DownloadInfo downloadInfo) {
+        if (downloadInfo == null) {
+            return;
+        }
+        if (downloadInfo.getDownloadArtistname() != null && downloadInfo.getDownloadArtistname().length() > 255) {
+            downloadInfo.setDownloadArtistname(downloadInfo.getDownloadArtistname().substring(0, 255));
+        }
+        if (downloadInfo.getDownloadMusicname() != null && downloadInfo.getDownloadMusicname().length() > 255) {
+            downloadInfo.setDownloadMusicname(downloadInfo.getDownloadMusicname().substring(0, 255));
+        }
+        if (downloadInfo.getDownloadAlbumname() != null && downloadInfo.getDownloadAlbumname().length() > 255) {
+            downloadInfo.setDownloadAlbumname(downloadInfo.getDownloadAlbumname().substring(0, 255));
+        }
+        if (downloadInfo.getDownloadMsg() != null && downloadInfo.getDownloadMsg().length() > 255) {
+            downloadInfo.setDownloadMsg(downloadInfo.getDownloadMsg().substring(0, 255));
+        }
     }
 
     @Override

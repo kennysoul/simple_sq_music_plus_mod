@@ -1,0 +1,7 @@
+FROM registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:latest
+
+COPY web_patch/custom-update-dot.js /usr/share/nginx/html/custom-update-dot.js
+
+RUN set -eux; \
+    grep -q "custom-update-dot.js" /usr/share/nginx/html/index.html || \
+    sed -i 's#</head>#    <script defer src="/custom-update-dot.js"></script>\n  </head>#' /usr/share/nginx/html/index.html

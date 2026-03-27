@@ -61,4 +61,20 @@ jobs:
             org.opencontainers.image.title=Simple SQ Music Plus Mod
             org.opencontainers.image.version=v${{ env.APP_VERSION }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push patched web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.actor }}/simple_sq_music_plus_web_mod:latest
+            ghcr.io/${{ github.actor }}/simple_sq_music_plus_web_mod:v${{ env.APP_VERSION }}
+          provenance: false
+          labels: |
+            org.opencontainers.image.title=Simple SQ Music Plus Web Mod
+            org.opencontainers.image.version=v${{ env.APP_VERSION }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
       

@@ -1,9 +1,26 @@
 version: '3.8'
 
+# 使用 GitHub Container Registry (ghcr.io) 镜像的部署文件
+# 镜像地址: ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
+# 支持 linux/amd64 和 linux/arm64 多架构，Docker 会自动选择匹配当前服务器的版本
+#
+# 使用前请修改:
+#   1. volumes 中的音乐目录路径（./music 改为实际路径，如 /mnt/hdd/sqmusic）
+#   2. 如需修改端口，调整 sqmusic_web 的 ports 映射
+#   3. 建议修改 MYSQL_ROOT_PASSWORD 和 DB_PASSWORD 为强密码
+#
+# 首次安装（包含版本绿点功能）:
+#   mkdir -p web_patch
+#   curl -o docker-compose.yml https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
+#   curl -o web_patch/index.html https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/web_patch/index.html
+#   curl -o web_patch/custom-update-dot.js https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/web_patch/custom-update-dot.js
+#   docker compose up -d
+
 services:
   sqmusic_main:
-    image: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:latest
+    image: ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
     container_name: sqmusic_main
+    command: ["sh", "-c", "java -Xms256m -Xmx512m -jar app.jar"]
     environment:
       - DB_IP=mysql
       - DB_PORT=3306
@@ -26,6 +43,9 @@ services:
     container_name: sqmusic_web
     ports:
       - "8096:80"
+    volumes:
+      - ./web_patch/index.html:/usr/share/nginx/html/index.html:ro
+      - ./web_patch/custom-update-dot.js:/usr/share/nginx/html/custom-update-dot.js:ro
     networks:
       - sq-app-network
     depends_on:
@@ -35,6 +55,7 @@ services:
   mysql:
     image: mysql:5.7
     container_name: sqmusic_mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       MYSQL_ROOT_PASSWORD: sqmusicv3password
       MYSQL_DATABASE: sqmusicv3
@@ -45,10 +66,10 @@ services:
     networks:
       - sq-app-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-psqmusicv3password"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 20
     restart: always
 
 networks:

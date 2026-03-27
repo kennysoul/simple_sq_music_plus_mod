@@ -8,6 +8,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.sqmusicplus.v3.addon.hook.VersionUpdateHook;
 import com.sqmusicplus.v3.base.entity.SqConfig;
 import com.sqmusicplus.v3.base.entity.SqSync;
 import com.sqmusicplus.v3.base.enums.DbBooleanConvert;
@@ -62,6 +63,8 @@ public class ConfigController {
     private KGHander kGHander;
     @Value("${version}")
     private String version;
+    @Autowired
+    private VersionUpdateHook versionUpdateHook;
     @Autowired
     private SqSyncService syncService;
 
@@ -194,6 +197,14 @@ public class ConfigController {
     @GetMapping("/version")
     public AjaxResult getVersion() {
         return AjaxResult.success("成功", version);
+    }
+
+    /**
+     * 获取更新检查结果（不打扰模式：仅给前端红点使用）
+     */
+    @GetMapping("/version/update-notice")
+    public AjaxResult getVersionUpdateNotice() {
+        return AjaxResult.success("成功", versionUpdateHook.check(version));
     }
 
 

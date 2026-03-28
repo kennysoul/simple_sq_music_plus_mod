@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   sqmusic_main:
-    image: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:latest
-    container_name: sqmusic_main
+    image: ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
+    container_name: sqmusic_mod_main
     environment:
       - DB_IP=mysql
       - DB_PORT=3306
@@ -16,25 +16,25 @@ services:
       mysql:
         condition: service_healthy
     networks:
-      - sq-app-network
+      - sq-mod-network
     expose:
       - "8099"
     restart: always
 
   sqmusic_web:
-    image: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:latest
-    container_name: sqmusic_web
+    image: ghcr.io/kennysoul/simple_sq_music_plus_web_mod:latest
+    container_name: sqmusic_mod_web
     ports:
       - "8099:80"
     networks:
-      - sq-app-network
+      - sq-mod-network
     depends_on:
       - sqmusic_main
     restart: always
 
   mysql:
     image: mysql:5.7
-    container_name: sqmusic_mysql
+    container_name: sqmusic_mod_mysql
     environment:
       MYSQL_ROOT_PASSWORD: sqmusicv3password
       MYSQL_DATABASE: sqmusicv3
@@ -44,7 +44,7 @@ services:
     ports:
       - "3306:3306"
     networks:
-      - sq-app-network
+      - sq-mod-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "mysql", "-u", "root", "-psqmusicv3password"]
       interval: 10s
@@ -53,7 +53,7 @@ services:
     restart: always
 
 networks:
-  sq-app-network:
+  sq-mod-network:
     driver: bridge
 
 

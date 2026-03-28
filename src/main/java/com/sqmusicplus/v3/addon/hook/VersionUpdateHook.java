@@ -12,7 +12,7 @@ import java.util.Map;
 public class VersionUpdateHook {
 
     private static final long CACHE_TTL_MS = 6 * 60 * 60 * 1000L;
-    private static final String LATEST_RELEASE_API = "https://api.github.com/repos/59799517/simple_sq_music_plus/releases/latest";
+    private static final String LATEST_RELEASE_API = "https://api.github.com/repos/kennysoul/simple_sq_music_plus_mod/releases/latest";
 
     private volatile long lastCheckAt = 0L;
     private volatile Map<String, Object> lastResult = null;

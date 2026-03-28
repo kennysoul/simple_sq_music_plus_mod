@@ -2,24 +2,72 @@
 
 # 综合检查脚本：检查Docker网络和容器状态
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# .env 加载优先级：命令行环境变量 > .env > 默认值
+load_dotenv_if_exists() {
+    local env_file="$1"
+    [ -f "$env_file" ] || return 0
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        # 跳过空行和注释
+        [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=(.*)$ ]]; then
+            local key="${BASH_REMATCH[1]}"
+            local value="${BASH_REMATCH[2]}"
+
+            # 去掉两侧空白
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+
+            # 去掉包裹引号
+            if [[ "$value" =~ ^\"(.*)\"$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            elif [[ "$value" =~ ^\'(.*)\'$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            fi
+
+            # 已经存在于环境变量时不覆盖
+            if [ -z "${!key+x}" ]; then
+                export "$key=$value"
+            fi
+        fi
+    done < "$env_file"
+}
+
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env}"
+load_dotenv_if_exists "$ENV_FILE"
+
 # 数据库配置
-DB_IP="mysql"
-DB_PORT="3306"
-DB_NAME="sqmusicv3"
-DB_USERNAME="root"
-DB_PASSWORD="sqmusicv3password"
+DB_IP="${DB_IP:-mysql}"
+DB_PORT="${DB_PORT:-3306}"
+DB_NAME="${DB_NAME:-sqmusicv3}"
+DB_USERNAME="${DB_USERNAME:-root}"
+DB_PASSWORD="${DB_PASSWORD:-sqmusicv3password}"
 
 # 音乐目录配置
-MUSIC_DIR_HOST="$(pwd)/../music"
-MUSIC_DIR_CONTAINER="/music"
+MUSIC_DIR_HOST="${MUSIC_DIR_HOST:-$ROOT_DIR/music}"
+MUSIC_DIR_CONTAINER="${MUSIC_DIR_CONTAINER:-/music}"
+
+# 端口配置（可通过环境变量覆盖）
+WEB_PORT_MAPPING="${WEB_PORT_MAPPING:-8096:80}"
+MAIN_PORT_MAPPING="${MAIN_PORT_MAPPING:-}"
 
 # 容器名称配置
-CONTAINER_MYSQL="sqmusic_mysql"
-CONTAINER_WEB="sqmusic_web"
-CONTAINER_MAIN="sqmusic_main"
+CONTAINER_MYSQL="${CONTAINER_MYSQL:-sqmusic_mod_mysql}"
+CONTAINER_WEB="${CONTAINER_WEB:-sqmusic_mod_web}"
+CONTAINER_MAIN="${CONTAINER_MAIN:-sqmusic_mod_main}"
 
 # 定义全局网络名称
-NETWORK_NAME="simple_sq_music_plus_sq-app-network"
+NETWORK_NAME="${NETWORK_NAME:-sq-mod-network}"
+
+# 版本与镜像配置（默认使用本仓库 mod 版本，避免升级后丢失自定义前端补丁）
+RELEASE_REPO="${RELEASE_REPO:-kennysoul/simple_sq_music_plus_mod}"
+IMAGE_MAIN="${IMAGE_MAIN:-ghcr.io/kennysoul/simple_sq_music_plus_mod}"
+IMAGE_WEB="${IMAGE_WEB:-ghcr.io/kennysoul/simple_sq_music_plus_web_mod}"
 
 # 不使用set -e，避免命令失败时脚本提前退出
 # set -e
@@ -212,7 +260,7 @@ get_web_version_by_main_version() {
     local main_version=$1
     
     # 从GitHub下载对应版本的application.yml文件并提取webversion
-    local app_yml_url="https://gh.xmly.dev/https://raw.githubusercontent.com/59799517/simple_sq_musuc_plus/${main_version}/src/main/resources/application.yml"
+    local app_yml_url="https://raw.githubusercontent.com/${RELEASE_REPO}/${main_version}/src/main/resources/application.yml"
     local response
     response=$(curl -sL "$app_yml_url" 2>/dev/null) || {
         echo "未知"
@@ -268,11 +316,11 @@ update_container() {
     # 只要容器名称不为空就执行更新
     if [ -n "$container_name" ]; then
         # 根据容器名称执行不同的更新逻辑
-        if [ "$container_name" = "sqmusic_main" ]; then
-            # 拉取最新的 sqmusic_main 镜像
-            info "正在拉取镜像: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:v$latest_version"
-            if docker pull "registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:v$latest_version"; then
-                success "成功拉取镜像: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:v$latest_version"
+        if [ "$container_name" = "$CONTAINER_MAIN" ]; then
+            # 拉取最新的主服务镜像
+            info "正在拉取镜像: ${IMAGE_MAIN}:$latest_version"
+            if docker pull "${IMAGE_MAIN}:$latest_version"; then
+                success "成功拉取镜像: ${IMAGE_MAIN}:$latest_version"
                 
                 # 停止并删除旧容器
                 info "正在停止容器: $CONTAINER_MAIN"
@@ -283,17 +331,22 @@ update_container() {
                 
                 # 启动新容器
                 info "正在启动新容器: $CONTAINER_MAIN"
+                local main_port_arg=""
+                if [ -n "$MAIN_PORT_MAPPING" ]; then
+                    main_port_arg="-p $MAIN_PORT_MAPPING"
+                fi
                 local run_cmd="docker run -d \
                     --name $CONTAINER_MAIN \
                     --restart=always \
                     --network $NETWORK_NAME \
+                    $main_port_arg \
                     -e DB_IP=$DB_IP \
                     -e DB_PORT=$DB_PORT \
                     -e DB_NAME=$DB_NAME \
                     -e DB_USERNAME=$DB_USERNAME \
                     -e DB_PASSWORD=$DB_PASSWORD \
                     -v $MUSIC_DIR_HOST:$MUSIC_DIR_CONTAINER \
-                    registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:v$latest_version"
+                    ${IMAGE_MAIN}:$latest_version"
                 
                 info "执行命令: $run_cmd"
                 
@@ -303,13 +356,13 @@ update_container() {
                     error "启动新容器失败: $CONTAINER_MAIN"
                 fi
             else
-                error "拉取镜像失败: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:v$latest_version"
+                error "拉取镜像失败: ${IMAGE_MAIN}:$latest_version"
             fi
-        elif [ "$container_name" = "sqmusic_web" ]; then
-            # 拉取最新的 sqmusic_web 镜像
-            info "正在拉取镜像: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:v$latest_version"
-            if docker pull "registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:v$latest_version"; then
-                success "成功拉取镜像: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:v$latest_version"
+        elif [ "$container_name" = "$CONTAINER_WEB" ]; then
+            # 拉取最新的 Web 服务镜像
+            info "正在拉取镜像: ${IMAGE_WEB}:$latest_version"
+            if docker pull "${IMAGE_WEB}:$latest_version"; then
+                success "成功拉取镜像: ${IMAGE_WEB}:$latest_version"
                 
                 # 停止并删除旧容器
                 info "正在停止容器: $CONTAINER_WEB"
@@ -324,8 +377,8 @@ update_container() {
                     --name $CONTAINER_WEB \
                     --restart=always \
                     --network $NETWORK_NAME \
-                    -p 8096:80 \
-                    registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:v$latest_version"
+                    -p $WEB_PORT_MAPPING \
+                    ${IMAGE_WEB}:$latest_version"
 
                 info "执行命令: $run_cmd"
                 
@@ -335,7 +388,7 @@ update_container() {
                     error "启动新容器失败: $CONTAINER_WEB"
                 fi
             else
-                error "拉取镜像失败: registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:v$latest_version"
+                error "拉取镜像失败: ${IMAGE_WEB}:$latest_version"
             fi
         else
             warn "未找到匹配的容器配置"
@@ -349,24 +402,24 @@ update_container() {
 check_app_versions() {
     info "========== 检查应用容器最新版本 =========="
     
-    # 检查 sqmusic_main 最新版本
+    # 检查主服务最新版本
     local main_latest_version
-    main_latest_version=$(get_latest_version "59799517/simple_sq_musuc_plus" "sqmusic_main")
-    info "sqmusic_main 最新版本: $main_latest_version"
+    main_latest_version=$(get_latest_version "$RELEASE_REPO" "$CONTAINER_MAIN")
+    info "$CONTAINER_MAIN 最新版本: $main_latest_version"
     
-    # 检查 sqmusic_web 最新版本（基于 sqmusic_main 版本）
+    # 检查 Web 服务最新版本（基于主服务版本）
     local web_latest_version
     web_latest_version=$(get_web_version_by_main_version "$main_latest_version")
-    info "sqmusic_web 最新版本: $web_latest_version"
+    info "$CONTAINER_WEB 最新版本: $web_latest_version"
     
     # 获取当前容器版本
     local main_current_version
-    main_current_version=$(get_container_version "sqmusic_main")
-    info "sqmusic_main 当前版本: $main_current_version"
+    main_current_version=$(get_container_version "$CONTAINER_MAIN")
+    info "$CONTAINER_MAIN 当前版本: $main_current_version"
     
     local web_current_version
-    web_current_version=$(get_container_version "sqmusic_web")
-    info "sqmusic_web 当前版本: $web_current_version"
+    web_current_version=$(get_container_version "$CONTAINER_WEB")
+    info "$CONTAINER_WEB 当前版本: $web_current_version"
     
     # 比较版本（去除可能的前缀v）
     local main_latest_clean
@@ -386,20 +439,20 @@ check_app_versions() {
     # info "调试: main_latest_clean=$main_latest_clean, main_current_clean=$main_current_clean"
     # info "调试: web_latest_clean=$web_latest_clean, web_current_clean=$web_current_clean"
 
-    # 检查 sqmusic_main 是否需要更新
+    # 检查主服务是否需要更新
     if [ "$main_latest_clean" = "$main_current_clean" ]; then
         success "主程序 当前已是最新版本"
     else
         warn "主程序 有新版本可用: $main_latest_version"
-        update_container "sqmusic_main" "$main_latest_version"
+        update_container "$CONTAINER_MAIN" "$main_latest_version"
     fi
     
-    # 检查 sqmusic_web 是否需要更新
+    # 检查 Web 服务是否需要更新
     if [ "$web_latest_clean" = "$web_current_clean" ]; then
         success "web服务 当前已是最新版本"
     else
         warn "web服务 有新版本可用: $web_latest_version"
-        update_container "sqmusic_web" "$web_latest_version"
+        update_container "$CONTAINER_WEB" "$web_latest_version"
     fi
     
     echo ""

@@ -27,11 +27,29 @@ curl -O https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0
 docker compose up -d
 ```
 
+```bash
+# 更新到你仓库最新发布
+docker compose pull
+docker compose up -d
+```
+
 - 默认 Web 端口：`8096`
 - 默认账号/密码：`admin` / `admin`
 - 音乐文件目录：当前目录下的 `./music`（可在 `docker-compose.yml` 中修改）
 
-> 如需使用原版官方镜像，请参考下方原版说明。
+> 安装与更新建议统一使用本仓库与本仓库发布的镜像，避免升级后丢失 Mod 功能。
+
+### 上游源码同步到本仓库（本地+GitHub）
+
+```bash
+# 在仓库根目录执行：同步上游 3.0 到本地 3.0，并推送到 origin/3.0
+bash script/sync_upstream.sh --push
+```
+
+```bash
+# 仅同步到本地，不推送
+bash script/sync_upstream.sh --no-push
+```
 
 ---
 
@@ -90,27 +108,27 @@ emby,jellyfin识别请参考如下配置 https://support.emby.media/support/solu
 docker pull mysql:5.7
 
 # 创建自定义网络
-docker network create sq-app-network
+docker network create sq-mod-network
 
 # 运行 MySQL 容器
 docker run -d \
-  --name sqmusic_mysql \
+  --name sqmusic_mod_mysql \
   --restart=always \
   -e MYSQL_ROOT_PASSWORD=sqmusicv3password \
   -e MYSQL_DATABASE=sqmusicv3 \
   -v ./mysql_data:/var/lib/mysql \
   -p 3306:3306 \
-  --network simple_sq_music_plus_sq-app-network \
+  --network sq-mod-network \
   mysql:5.8
 ```
 2. 启动后端服务
 ```dockerfile
 # 拉取后端服务镜像（使用最新版本号）
-docker pull registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:v3.0.8
+docker pull ghcr.io/kennysoul/simple_sq_music_plus_mod:v3.0.8
 
 # 运行后端容器
 docker run -d \
-  --name sqmusic_main \
+  --name sqmusic_mod_main \
   --restart=always \
   -e DB_IP=mysql \
   -e DB_PORT=3306 \
@@ -118,21 +136,21 @@ docker run -d \
   -e DB_USERNAME=root \
   -e DB_PASSWORD=sqmusicv3password \
   -v ./music:/music \
-  --network simple_sq_music_plus_sq-app-network \
-  registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus:latest
+  --network sq-mod-network \
+  ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
 ```
 3. 启动前段服务
 ```dockerfile
 # 拉取前端服务镜像（使用最新版本号）
-docker pull registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:v3.0.5
+docker pull ghcr.io/kennysoul/simple_sq_music_plus_web_mod:v3.0.5
 
 # 运行前端容器
 docker run -d \
-  --name sqmusic_web \
+  --name sqmusic_mod_web \
   --restart=always \
   -p 8996:80 \
-  --network simple_sq_music_plus_sq-app-network \
-  registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus_web:latest
+  --network sq-mod-network \
+  ghcr.io/kennysoul/simple_sq_music_plus_web_mod:latest
 
 ```
 

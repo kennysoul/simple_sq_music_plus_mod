@@ -1,5 +1,6 @@
 (function () {
-  var API = "/api/config/version/update-notice";
+  var API_NOTICE = "/api/config/version/update-notice";
+  var API_VERSION = "/api/config/version";
   var UPDATE_STATE = "unknown";
   var CURRENT_VERSION = "";
   var LATEST_VERSION = "";
@@ -72,11 +73,57 @@
       if (!el || !el.textContent) {
         continue;
       }
-      if (el.textContent.indexOf("后端版本:") !== -1) {
+      var text = (el.textContent || "").replace(/\s+/g, "");
+      if (text.indexOf("后端版本") !== -1) {
         targets.push(el);
       }
     }
     return targets;
+  }
+
+  function normalizeVersion(version) {
+    if (version == null) {
+      return "";
+    }
+    var v = String(version).trim();
+    if (!v) {
+      return "";
+    }
+    if (v.charAt(0).toLowerCase() === "v") {
+      return v;
+    }
+    return "v" + v;
+  }
+
+  function ensureBackendVersionText(target) {
+    if (!target) {
+      return;
+    }
+    var text = (target.textContent || "").trim();
+    if (text.indexOf("后端版本") === -1) {
+      return;
+    }
+
+    var displayVersion = normalizeVersion(CURRENT_VERSION);
+    if (!displayVersion) {
+      return;
+    }
+
+    var normalized = text.replace(/\s+/g, "");
+    var hasVersion = /后端版本[：:](v|V)?\d/.test(normalized);
+    if (hasVersion) {
+      return;
+    }
+
+    for (var i = target.childNodes.length - 1; i >= 0; i--) {
+      var node = target.childNodes[i];
+      if (node && node.classList && node.classList.contains("sq-update-dot")) {
+        continue;
+      }
+      target.removeChild(node);
+    }
+
+    target.appendChild(document.createTextNode("后端版本: " + displayVersion));
   }
 
   function pickBestVersionTarget() {
@@ -107,6 +154,7 @@
 
   function renderDot() {
     var target = pickBestVersionTarget();
+    ensureBackendVersionText(target);
     clearAllDotsExcept(target);
     upsertDot(target);
   }
@@ -119,7 +167,7 @@
   }
 
   function checkUpdate() {
-    fetch(API, { method: "GET", cache: "no-store" })
+    fetch(API_NOTICE, { method: "GET", cache: "no-store" })
       .then(function (resp) { return resp.json(); })
       .then(function (data) {
         if (!data || data.code !== 200 || !data.data) {
@@ -137,9 +185,28 @@
       });
   }
 
+  function checkVersion() {
+    fetch(API_VERSION, { method: "GET", cache: "no-store" })
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (!data || data.code !== 200) {
+          return;
+        }
+        var apiVersion = normalizeVersion(data.data || "");
+        if (apiVersion) {
+          CURRENT_VERSION = apiVersion;
+          renderDot();
+        }
+      })
+      .catch(function () {
+        // 静默失败，不影响主功能
+      });
+  }
+
   function boot() {
     startObserver();
     checkUpdate();
+    checkVersion();
   }
 
   if (document.readyState === "loading") {

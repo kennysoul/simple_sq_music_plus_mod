@@ -1,19 +1,51 @@
 version: '3.8'
 
 # 使用 GitHub Container Registry (ghcr.io) 镜像的部署文件
-# 镜像地址: ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
+# 镜像地址:
+#   ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
+#   ghcr.io/kennysoul/simple_sq_music_plus_web_mod:latest
 # 支持 linux/amd64 和 linux/arm64 多架构，Docker 会自动选择匹配当前服务器的版本
 #
-# 使用前请修改:
-#   1. volumes 中的音乐目录路径（./music 改为实际路径，如 /mnt/hdd/sqmusic）
-#   2. 如需修改端口，调整 sqmusic_web 的 ports 映射
-#   3. 建议修改 MYSQL_ROOT_PASSWORD 和 DB_PASSWORD 为强密码
+# 默认分发配置：
+#   1. 音乐目录映射为 ./music:/music
+#   2. 前端端口 8096，后端仅在容器网络内暴露 8099
+#   3. 容器命名统一为修改版 sqmusic_mod_*
 #
-# 首次安装（单文件）:
+# 如需保留个人路径/端口配置，建议单独使用 docker-compose.override.yml 覆盖本文件，
+# 升级时只更新 docker-compose.yml 即可，不影响本地个性化配置。
+#
+# ====== 安装与升级流程 ======
+# 新用户首次安装:
 #   curl -o docker-compose.yml https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
-#   docker compose pull && docker compose up -d
+#   docker compose pull
+#   docker compose up -d
+#
+# 旧用户升级（已有容器的情况）:
+#   cd <镜像所在目录>
+#   docker compose pull
+#   docker compose up -d
 
 services:
+  mysql:
+    image: mysql:5.7
+    container_name: sqmusic_mod_mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: sqmusicv3password
+      MYSQL_DATABASE: sqmusicv3
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - sq-mod-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-psqmusicv3password"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: always
+
   sqmusic_main:
     image: ghcr.io/kennysoul/simple_sq_music_plus_mod:latest
     container_name: sqmusic_mod_main
@@ -44,26 +76,6 @@ services:
       - sq-mod-network
     depends_on:
       - sqmusic_main
-    restart: always
-
-  mysql:
-    image: mysql:5.7
-    container_name: sqmusic_mod_mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    environment:
-      MYSQL_ROOT_PASSWORD: sqmusicv3password
-      MYSQL_DATABASE: sqmusicv3
-    volumes:
-      - ./mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    networks:
-      - sq-mod-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-psqmusicv3password"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
     restart: always
 
 networks:

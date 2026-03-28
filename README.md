@@ -19,25 +19,34 @@
 
 镜像由 GitHub Actions 自动构建并发布，支持 `linux/amd64` 和 `linux/arm64`，Docker 会自动选择匹配当前服务器的版本。
 
-```bash
-# 下载部署文件
-curl -O https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
+#### 📝 新用户首次安装
 
-# 启动（首次运行如报错请等待 MySQL 初始化完成后重试）
+```bash
+# 1. 下载部署文件到新目录
+curl -o docker-compose.yml https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
+
+# 2. 拉取最新镜像
+docker compose pull
+
+# 3. 启动（首次运行如报错请等待 MySQL 初始化完成后重试）
 docker compose up -d
 ```
 
+#### 🔄 旧用户升级
+
+在已有容器的目录下执行：
+
 ```bash
-# 更新到你仓库最新发布
 docker compose pull
 docker compose up -d
 ```
 
+**说明**：
 - 默认 Web 端口：`8096`
 - 默认账号/密码：`admin` / `admin`
 - 音乐文件目录：当前目录下的 `./music`（可在 `docker-compose.yml` 中修改）
 
-> 安装与更新建议统一使用本仓库与本仓库发布的镜像，避免升级后丢失 Mod 功能。
+> ⚠️ 安装与更新建议统一使用本仓库与本仓库发布的镜像，避免升级后丢失 Mod 功能。
 
 ### 上游源码同步到本仓库（本地+GitHub）
 

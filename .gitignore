@@ -33,3 +33,6 @@ build/
 .vscode/
 ### package-lock 在vue目录下的###
 vue/package-lock.json
+
+# Local deployment overrides
+docker-compose.override.yml

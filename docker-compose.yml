@@ -17,13 +17,11 @@ version: '3.8'
 # ====== 安装与升级流程 ======
 # 新用户首次安装:
 #   curl -o docker-compose.yml https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
-#   docker compose pull
-#   docker compose up -d
+#   docker compose pull && docker compose up -d
 #
 # 旧用户升级（已有容器的情况）:
 #   cd <镜像所在目录>
-#   docker compose pull
-#   docker compose up -d
+#   docker compose pull && docker compose up -d
 
 services:
   mysql:

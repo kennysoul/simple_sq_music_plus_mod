@@ -25,11 +25,8 @@
 # 1. 下载部署文件到新目录
 curl -o docker-compose.yml https://raw.githubusercontent.com/kennysoul/simple_sq_music_plus_mod/3.0/docker-compose.yml
 
-# 2. 拉取最新镜像
-docker compose pull
-
-# 3. 启动（首次运行如报错请等待 MySQL 初始化完成后重试）
-docker compose up -d
+# 2. 拉取镜像并启动（首次运行如报错请等待 MySQL 初始化完成后重试）
+docker compose pull && docker compose up -d
 ```
 
 #### 🔄 旧用户升级
@@ -37,8 +34,7 @@ docker compose up -d
 在已有容器的目录下执行：
 
 ```bash
-docker compose pull
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 **说明**：

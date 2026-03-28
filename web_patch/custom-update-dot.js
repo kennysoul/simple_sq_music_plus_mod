@@ -4,6 +4,9 @@
   var UPDATE_STATE = "unknown";
   var CURRENT_VERSION = "";
   var LATEST_VERSION = "";
+  var UPSTREAM_API = "https://api.github.com/repos/59799517/simple_sq_music_plus/releases/latest";
+  var UPSTREAM_STATE = "unknown"; // "unknown" | "behind" | "synced"
+  var UPSTREAM_VERSION = "";
 
   function createDot() {
     var dot = document.createElement("span");
@@ -25,11 +28,20 @@
         title: "检测到新版本: " + LATEST_VERSION + " (当前 " + CURRENT_VERSION + ")"
       };
     }
-    if (UPDATE_STATE === "ok") {
+    if (UPSTREAM_STATE === "behind") {
+      return {
+        color: "#fa8c16",
+        ring: "rgba(250,140,22,0.25)",
+        title: "原版已更新至 " + UPSTREAM_VERSION + "，当前 mod 尚未同步，建议升级"
+      };
+    }
+    if (UPDATE_STATE === "ok" || UPSTREAM_STATE === "synced") {
       return {
         color: "#52c41a",
         ring: "rgba(82,196,26,0.25)",
-        title: "当前已是最新版本: " + CURRENT_VERSION
+        title: UPSTREAM_STATE === "synced"
+          ? "已同步至原版最新: " + UPSTREAM_VERSION + " (当前 " + CURRENT_VERSION + ")"
+          : "当前已是最新版本: " + CURRENT_VERSION
       };
     }
     return {
@@ -196,10 +208,43 @@
         if (apiVersion) {
           CURRENT_VERSION = apiVersion;
           renderDot();
+          checkUpstreamUpdate();
         }
       })
       .catch(function () {
         // 静默失败，不影响主功能
+      });
+  }
+
+  function compareVersionNums(a, b) {
+    var clean = function (v) { return String(v).replace(/^v/i, "").replace(/-.*$/, ""); };
+    var partsA = clean(a).split(".").map(Number);
+    var partsB = clean(b).split(".").map(Number);
+    for (var i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+      var na = partsA[i] || 0;
+      var nb = partsB[i] || 0;
+      if (na !== nb) { return na - nb; }
+    }
+    return 0;
+  }
+
+  function checkUpstreamUpdate() {
+    if (!CURRENT_VERSION) { return; }
+    fetch(UPSTREAM_API, { method: "GET", cache: "no-store" })
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (!data || !data.tag_name) { return; }
+        var tag = String(data.tag_name).trim();
+        UPSTREAM_VERSION = tag.charAt(0).toLowerCase() === "v" ? tag : "v" + tag;
+        if (compareVersionNums(tag, CURRENT_VERSION) > 0) {
+          UPSTREAM_STATE = "behind";
+        } else {
+          UPSTREAM_STATE = "synced";
+        }
+        renderDot();
+      })
+      .catch(function () {
+        UPSTREAM_STATE = "unknown";
       });
   }
 
